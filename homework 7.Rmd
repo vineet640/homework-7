@@ -1,0 +1,143 @@
+---
+title: "Homework 7"
+output:
+  html_document:
+    mathjax: default
+date: "2025-04-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+armfold <- read.csv("/Users/vineetburugu/Downloads/armfold.csv")
+turnout <- read.csv("/Users/vineetburugu/Downloads/turnout.csv")
+library(dplyr)
+library(MatchIt)
+```
+
+## Problem 1: Armfolding
+
+### A. Load and examine the data. Report:
+- The number of male and female students in the dataset.
+  - Male: `r table(armfold$Sex)["Male"]`
+  - Female: `r table(armfold$Sex)["Female"]`
+- The sample proportion of males who folded their left arm on top. - `r mean(armfold$LonR_fold[armfold$Sex == "Male"])`
+- The sample proportion of females who folded their left arm on top. - `r mean(armfold$LonR_fold[armfold$Sex == "Female"])`
+
+### B. What is the observed difference in proportions between the two groups (males minus females)?
+```{r echo=FALSE}
+m <- mean(armfold$LonR_fold[armfold$Sex == "Male"])
+f <- mean(armfold$LonR_fold[armfold$Sex == "Female"])
+dmf <- m - f
+dmf
+```
+
+### C. Compute a 95% confidence interval for the difference in proportions (males minus females)
+
+#### i. hand-calculated
+
+```{r echo=FALSE}
+table_sex <- table(armfold$Sex)
+se <- sqrt((m * (1 - m)) / table_sex["Male"] + 
+           (f * (1 - f)) / table_sex["Female"])
+z <- qnorm(0.975)
+c(dmf - z * se, dmf + z * se)
+```
+
+- The formula for the standard error for the difference in proportions is:
+$$
+SE = \sqrt{\frac{p_1(1 - p_1)}{n_1} + \frac{p_2(1 - p_2)}{n_2}}
+$$
+- The values you plugged into the formula were:
+  - $p_1 =$ `r round(m, 3)`
+  - $n_1 =$ `r table_sex["Male"]`  
+  - $p_2 =$ `r round(f, 3)`
+  - $n_2 =$  `r table_sex["Female"]`
+- The z* value you used and why: By using a `qnorm(0.975)`, we get a z* that allows to have 2.5% in the upper tail (or the 97.5th percentile of the standard normal distribution). This corresponds to a 95% two sided confidence interval. 
+
+#### ii. R's built-in function
+
+```{r echo=FALSE}
+n1 <- table_sex["Male"]
+n2 <- table_sex["Female"]
+p1 <- sum(armfold$LonR_fold[armfold$Sex == "Male"])
+p2 <- sum(armfold$LonR_fold[armfold$Sex == "Female"])
+prop_test <- prop.test(c(p1, p2), c(n1, n2), correct=FALSE)
+prop_test$conf.int
+```
+
+### D. Interpret your confidence interval in context by completing the blanks in this sentence:
+
+If I were to calculate hundreds of 95% confidence intervals from hundreds of sample difference of means under the same conditions, about 95% of those intervals would capture the true difference in the proportions of males and females who fold their left arm on top.
+
+### E. In your own words, what does the standard error you calculated above represent? What is it measuring? - finished?
+
+The standard error of `r se` I calculated represents the expected average variability in the difference in sample proportions (males - females who fold their left arm on top) if we repeated the study hundreds of times under the same conditions.
+
+### G. What mathematical result or theorem justifies using a normal distribution to approximate the sampling distribution of the difference in sample proportions? Explain this result briefly in your own words.
+
+The Central Limit Theorem, or the CLT, says that sampling distributions (like the difference in proportions) based on averages from a large number of independent samples all look like a normal distribution.
+
+### H. Suppose your 95% confidence interval for the difference in proportions was [-0.01, 0.30]. Based on this, what would you say to someone who claims “there’s no sex difference in arm folding”?
+
+Because that confidence interval includes 0, technically, there is no true difference between how males and females fold their arms. Although the difference is quite clearly skewed on one side, it is not statistically significant to 5%, and we would probably need to use a slightly bigger alpha to show a statistically significant difference.
+
+### I. Imagine repeating this experiment many times with different random samples of university students. Would the confidence interval be different across samples? Why? What should be true about the collection of all those intervals?
+
+Yes, the confidence interval would be different across samples. That is because for every random group of university students, the proportions would be different. This random variation would affect the difference in proportions, which would affect the confidence interval. If we were to repeat the study hundreds of times and produce a 95% confidence interval, we can be sure that around 95% of those intervals would actually have the real difference in proportions between males and females who fold their left arm on top.
+
+## Problem 2: Get out the vote
+
+### Part A. How much more likely are GOTV call recipients to have voted in 1998? As a preliminary analysis, calculate the following quantities.
+- The proportion of those receiving a GOTV call who voted in 1998. - `r mean(turnout$voted1998[turnout$GOTV_call == 1])`
+- The sample proportion of those not receiving a GOTV call who voted in 1998. - `r mean(turnout$voted1998[turnout$GOTV_call == 0])`
+- A large-sample 95% confidence interval for the difference in these two proportions: that is, the proportions of voting in 1998 (voted1998==1) for those who received a GOTV call versus those who didn’t. 
+
+```{r echo=FALSE}
+n3 <- sum(turnout$GOTV_call == 1)
+n4 <- sum(turnout$GOTV_call == 0)
+p3 <- sum(turnout$voted1998[turnout$GOTV_call == 1])
+p4 <- sum(turnout$voted1998[turnout$GOTV_call == 0])
+prop1 <- prop.test(c(p3, p4), c(n3, n4), correct = FALSE)
+prop1$conf.int
+```
+
+Recipients of a GOTV call were about 14–26% more likely to vote in 1998.
+
+### Part B. Consider the voted1996, AGE, and MAJORPTY variables. Provide evidence that at all three of these variables are confounders that prevent the difference you observed in Part A from representing the true causal effect of the GOTV call on the likelihood that a person voted in 1998. Confounders here would be factors that make someone more likely to receive a GOTV call and to have voted in 1998. Your evidence here can consist of any appropriate plot, table, or set of summary statistics, together with an appropriate large-sample confidence interval.
+
+```{r echo=FALSE}
+t.test(voted1996 ~ GOTV_call, data = turnout)
+t.test(AGE ~ GOTV_call, data = turnout)
+t.test(MAJORPTY ~ GOTV_call, data = turnout)
+```
+
+### Part C. Now let’s get a better estimate of the effect of the GOTV call on the likelihood that a person voted. Use matching to construct a data set with GOTV_call as our treatment variable, and with voted1996, AGE, and MAJORPTY as our “matching” or “balancing” variables. Use 5 control cases for each treated case in your matching (ratio=5). (Remember the greenbuildings.R walkthrough on matching from class before spring break.) Provide evidence that your “matched” data set is, indeed, balanced with respect to the three confounders of voted1996, AGE, and MAJORPTY. (That is, show that these variables are no longer confounders for the matched data, by producing appropriate summary statistics and associated large-sample confidence intervals.) Then repeat your analysis from Part A, except using the matched data only. For this matched data set, calculate:
+
+```{r include=FALSE}
+matched <- matchit(GOTV_call ~ voted1996 + AGE + MAJORPTY, 
+                      data = turnout, 
+                      method = "nearest", 
+                      ratio = 5)
+matchedd <- match.data(matched)
+matchedd %>%
+  group_by(GOTV_call) %>%
+  summarize(
+    voted1996 = mean(voted1996),
+    AGE = mean(AGE),
+    MAJORPTY = mean(MAJORPTY),
+    n = n()
+  )
+```
+
+- The proportion of those receiving a GOTV call who voted in 1998. -  `r mean(matchedd$voted1998[matchedd$GOTV_call == 1])`
+- The sample proportion of those not receiving a GOTV call who voted in 1998. - `r mean(matchedd$voted1998[matchedd$GOTV_call == 0])`
+- A large-sample 95% confidence interval for the difference in these two proportions: that is, the proportions of voting in 1998 (voted1998==1) for those who received a GOTV call versus those who didn’t.
+
+```{r echo=FALSE}
+a3 <- sum(matchedd$GOTV_call == 1)
+a4 <- sum(matchedd$GOTV_call == 0)
+a1 <- sum(matchedd$voted1998[matchedd$GOTV_call == 1])
+a2 <- sum(matchedd$voted1998[matchedd$GOTV_call == 0])
+prop2 <- prop.test(c(a1, a2), c(a3, a4), correct = FALSE)
+prop2$conf.int
+```
